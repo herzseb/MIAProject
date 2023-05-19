@@ -14,4 +14,4 @@
 module load python/3.7.4
 module load cuda/11.4
 module load cudnn/8.2.2/cuda-11.4
-python main.python
+python main.py
