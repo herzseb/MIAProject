@@ -25,9 +25,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True, 'downsampling': 0.75},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True,  'downsampling': 0.75},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True,  'downsampling': 0.75}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1, 'downsampling': 1},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 1},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 1}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -84,7 +84,7 @@ for hyperparams in hyperparameters:
         optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
 
         dataloader = DataLoader(
-            train_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True)
+            train_dataset, collate_fn=collate_fn, batch_size=hyperparams.get("batch_size"), shuffle=True)
 
         model.train()
         fold_loss = []
@@ -117,15 +117,9 @@ for hyperparams in hyperparameters:
                 else:
                     acc_loss = criterion(outputs, target)
                 loss += acc_loss
-                if hyperparams.get("accumulative_loss"):
-                    if hyperparams.get("batch_size")%(i+1) == 0:
-                        loss = loss / hyperparams.get("batch_size")
-                        # Backward pass and optimization
-                        loss.backward()
-                        optimizer.step()
-                        epoch_loss += loss.item()
-                        loss = 0
-                else:
+                if (i+1)%hyperparams.get("batch_size") == 0:
+                    loss = loss / hyperparams.get("batch_size")
+                    # Backward pass and optimization
                     loss.backward()
                     optimizer.step()
                     epoch_loss += loss.item()
