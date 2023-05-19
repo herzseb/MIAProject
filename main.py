@@ -25,9 +25,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1, 'downsampling': 1},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 1},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 1}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1, 'downsampling': 1},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1,  'downsampling': 1},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1,  'downsampling': 1}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -63,6 +63,7 @@ for hyperparams in hyperparameters:
     fold_results_HD_std = []
     fold_results = []
     param_loss = []
+    val_loss = []
     for fold, (train_idx, val_idx) in enumerate(skf.split(dataset, labels)):
         # Initialize the model and move it to the appropriate device
         model = UNet2D(in_channels=1, out_channels=3).to(device)
@@ -124,7 +125,7 @@ for hyperparams in hyperparameters:
                     optimizer.step()
                     epoch_loss += loss.item()
                     loss = 0
-            fold_loss.append(epoch_loss/hyperparams['epochs'])
+            fold_loss.append(epoch_loss/len(dataloader))
         param_loss.append(fold_loss)
 
         # Evaluate the model on the validation set
@@ -135,6 +136,7 @@ for hyperparams in hyperparameters:
         HD_normal = []
         HD_benign = []
         HD_malignant = []
+        loss = 0
 
         dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
         for i, item in enumerate(dataloader):
@@ -151,7 +153,11 @@ for hyperparams in hyperparameters:
 
             # Forward pass
             outputs = torch.argmax(model(input), dim=1, keepdim=False)
-
+            if isinstance(criterion, SoftTunedDiceBCELoss):
+                loss += criterion(outputs, target, epoch)
+            else:
+                loss += criterion(outputs, target)
+            val_loss.append(loss / len(dataset))
             # Calculate the evaluation metric
             if torch.max(target) == 1:
                 dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
@@ -236,11 +242,11 @@ for hyperparams in hyperparameters:
                f'HD malignant std': paramset_HD_malignant_std})
 
     param_loss = np.mean(param_loss, axis=0).tolist()
-    param_loss_with_epoch = [[item, i] for i, item in enumerate(param_loss)]
+    param_loss_with_epoch = [[train, val, i] for i, train, val in enumerate(zip(param_loss, val_loss))]
     table_param_loss = wandb.Table(
-        data=param_loss_with_epoch, columns=["loss", "epoch"])
+        data=param_loss_with_epoch, columns=["training loss", "validation loss", "epoch"])
     wandb.log({f"{hyperparams.get('criterion')}": wandb.plot.line(
-        table_param_loss, "loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
+        table_param_loss, "training loss", "validation loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
 
     # Print the results
     print('Hyperparameters:', hyperparams)
