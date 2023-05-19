@@ -29,9 +29,9 @@ debugging = False
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 16},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 16},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 16}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 12},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 12},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 12}
 ]
 
 wandb.log({"runs": hyperparameters})
