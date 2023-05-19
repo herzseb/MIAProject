@@ -14,8 +14,6 @@ random.seed(42)
 torch.manual_seed(42)
 np.random.seed(42)
 # TODOS
-# hyperparams
-# configs
 # bring everything into memory
 
 # Initialize wandb
@@ -25,13 +23,11 @@ wandb.init(project='MIA-project')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
-debugging = False
-
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True, 'downsampling': 0.75},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True,  'downsampling': 0.75},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': True,  'downsampling': 0.75}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -95,12 +91,13 @@ for hyperparams in hyperparameters:
         # Train the model
         for epoch in range(hyperparams['epochs']):
             epoch_loss = 0
+            loss = 0
             print(f"epoch: {epoch}")
             for i, item in enumerate(dataloader):
                 input, target = item
-                if debugging:
-                    a = int(input.shape[2]*0.2)
-                    b = int(input.shape[3]*0.2)
+                if hyperparams.get('downsampling') < 1:
+                    a = int(input.shape[2]*hyperparams.get('downsampling'))
+                    b = int(input.shape[3]*hyperparams.get('downsampling'))
                     input = F.interpolate(input, (a,b))
                     target = F.interpolate(target,  (a,b))
                 input = input.to(device)
@@ -116,14 +113,23 @@ for hyperparams in hyperparameters:
 
                 # Compute the loss
                 if isinstance(criterion, SoftTunedDiceBCELoss):
-                    loss = criterion(outputs, target, epoch)
+                    acc_loss = criterion(outputs, target, epoch)
                 else:
-                    loss = criterion(outputs, target)
-
-                # Backward pass and optimization
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.item()
+                    acc_loss = criterion(outputs, target)
+                loss += acc_loss
+                if hyperparams.get("accumulative_loss"):
+                    if hyperparams.get("batch_size")%(i+1) == 0:
+                        loss = loss / hyperparams.get("batch_size")
+                        # Backward pass and optimization
+                        loss.backward()
+                        optimizer.step()
+                        epoch_loss += loss.item()
+                        loss = 0
+                else:
+                    loss.backward()
+                    optimizer.step()
+                    epoch_loss += loss.item()
+                    loss = 0
             fold_loss.append(epoch_loss/hyperparams['epochs'])
         param_loss.append(fold_loss)
 
@@ -139,9 +145,11 @@ for hyperparams in hyperparameters:
         dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
         for i, item in enumerate(dataloader):
             input, target = item
-            if debugging:
-                input = F.interpolate(input, (64, 64))
-                target = F.interpolate(target, (64, 64))
+            if hyperparams.get('downsampling') < 1:
+                a = int(input.shape[2]*hyperparams.get('downsampling'))
+                b = int(input.shape[3]*hyperparams.get('downsampling'))
+                input = F.interpolate(input, (a,b))
+                target = F.interpolate(target,  (a,b))
             input = input.to(device)
             target = target.to(device)
             target = torch.squeeze(target, dim=1)
