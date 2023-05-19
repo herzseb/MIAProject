@@ -29,15 +29,15 @@ debugging = False
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy'},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy'},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy'}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 16},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 16},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 16}
 ]
 
 wandb.log({"runs": hyperparameters})
 
 # Define the number of folds for cross-validation
-k_folds = 1
+k_folds = 2
 
 # Define the dataset and labels (assuming binary classification)
 dataset = SegmentationDataset("Dataset_BUSI_with_GT")
