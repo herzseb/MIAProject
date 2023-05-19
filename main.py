@@ -29,9 +29,9 @@ debugging = False
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 12},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 12},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 12}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 8},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 8},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 8}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -97,9 +97,6 @@ for hyperparams in hyperparameters:
             epoch_loss = 0
             print(f"epoch: {epoch}")
             for i, item in enumerate(dataloader):
-                print(i)
-                if i == 4:
-                    break
                 input, target = item
                 if debugging:
                     input = F.interpolate(input, (64, 64))
