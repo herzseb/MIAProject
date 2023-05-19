@@ -6,7 +6,7 @@
 #SBATCH --partition=long
 #SBATCH --qos=users        
 #SBATCH --account=users    
-#SBATCH --gres=gpu:tesla_t4:1
+#SBATCH --gres=gpu:tesla_V100:1
 #SBATCH --time=7:0:0        
 #SBATCH --output=test-%j.out    
 #SBATCH --mail-type=ALL

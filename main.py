@@ -29,9 +29,9 @@ debugging = False
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 8},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 8},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 8}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -99,10 +99,12 @@ for hyperparams in hyperparameters:
             for i, item in enumerate(dataloader):
                 input, target = item
                 if debugging:
-                    input = F.interpolate(input, (64, 64))
-                    target = F.interpolate(target, (64, 64))
+                    a = int(input.shape[2]*0.2)
+                    b = int(input.shape[3]*0.2)
+                    input = F.interpolate(input, (a,b))
+                    target = F.interpolate(target,  (a,b))
                 input = input.to(device)
-                target = target.to(device)
+                target = target.cpu()
                 target = torch.squeeze(target, dim=1)
                 target = target.to(torch.long)
 
@@ -110,7 +112,7 @@ for hyperparams in hyperparameters:
                 optimizer.zero_grad()
 
                 # Forward pass
-                outputs = F.softmax(model(input), dim=1)
+                outputs = F.softmax(model(input), dim=1).cpu()
 
                 # Compute the loss
                 if isinstance(criterion, SoftTunedDiceBCELoss):
