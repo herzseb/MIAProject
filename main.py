@@ -23,20 +23,21 @@ wandb.init(project='MIA-project')
 
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
 
+debugging = False
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 4, 'criterion': 'CrossEntropy'},
-    {'lr': 0.01, 'epochs': 4,  'criterion': 'SoftDice'},
-    {'lr': 0.1, 'epochs': 4, 'criterion': 'Focal'},
-    {'lr': 0.1, 'epochs': 4, 'criterion': 'SoftTunedDiceBCELoss'}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy'},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy'},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy'}
 ]
 
 wandb.log({"runs": hyperparameters})
 
 # Define the number of folds for cross-validation
-k_folds = 3
+k_folds = 1
 
 # Define the dataset and labels (assuming binary classification)
 dataset = SegmentationDataset("Dataset_BUSI_with_GT")
@@ -83,10 +84,12 @@ for hyperparams in hyperparameters:
         elif hyperparams.get("criterion") == "SoftTunedDiceBCELoss":
             criterion = SoftTunedDiceBCELoss(
                 total_epochs=hyperparams.get("epochs"))
-        optimizer = optim.SGD(model.parameters(), lr=hyperparams['lr'])
+
+        optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
 
         dataloader = DataLoader(
             train_dataset, collate_fn=collate_fn, batch_size=8, shuffle=True)
+
         model.train()
         fold_loss = []
         # Train the model
@@ -98,8 +101,9 @@ for hyperparams in hyperparameters:
                 if i == 4:
                     break
                 input, target = item
-                input = F.interpolate(input, (64, 64))
-                target = F.interpolate(target, (64, 64))
+                if debugging:
+                    input = F.interpolate(input, (64, 64))
+                    target = F.interpolate(target, (64, 64))
                 input = input.to(device)
                 target = target.to(device)
                 target = torch.squeeze(target, dim=1)
@@ -136,9 +140,9 @@ for hyperparams in hyperparameters:
         dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
         for i, item in enumerate(dataloader):
             input, target = item
-            # FIXME
-            input = F.interpolate(input, (64, 64))
-            target = F.interpolate(target, (64, 64))
+            if debugging:
+                input = F.interpolate(input, (64, 64))
+                target = F.interpolate(target, (64, 64))
             input = input.to(device)
             target = target.to(device)
             target = torch.squeeze(target, dim=1)
@@ -235,7 +239,7 @@ for hyperparams in hyperparameters:
     table_param_loss = wandb.Table(
         data=param_loss_with_epoch, columns=["loss", "epoch"])
     wandb.log({f"{hyperparams.get('criterion')}": wandb.plot.line(
-        table_param_loss, "loss", "epoch", title="Average loss per epoch over 5 folds")})
+        table_param_loss, "loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
 
     # Print the results
     print('Hyperparameters:', hyperparams)
