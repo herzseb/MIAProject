@@ -13,6 +13,7 @@ import random
 random.seed(42)
 torch.manual_seed(42)
 np.random.seed(42)
+debugging = False
 # TODOS
 # bring everything into memory
 
@@ -25,9 +26,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1, 'downsampling': 1},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1,  'downsampling': 1},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1,  'downsampling': 1}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -49,6 +50,7 @@ for path in dataset.file_list:
 print(
     f"dataset: benign: {labels.count('benign')}, malignant: {labels.count('malignant')}, normal: {labels.count('normal')}")
 
+# Test dice score manually
 # pred = torch.tensor([[[[0.1,0.1,1],[0.1,0.1,1],[1,1,1]], [[0.9,0.9,0],[0.9,0.9,0],[0,0,0]], [[0,0,0],[0,0,0],[0,0,0]]]])
 # target = torch.tensor([[[1,1,0],[1,1,0],[0,0,0]]])
 # x = soft_dice_score(pred, target)
@@ -56,18 +58,24 @@ print(
 # Perform stratified k-fold cross-validation
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
 
+# loop over all hyperparameters
 for hyperparams in hyperparameters:
     fold_results_dice_mean = []
     fold_results_dice_std = []
     fold_results_HD_mean = []
     fold_results_HD_std = []
     fold_results = []
-    param_loss = []
+    param_train_loss = []
     val_loss = []
     for fold, (train_idx, val_idx) in enumerate(skf.split(dataset, labels)):
+        # for greedy optimization act as normal train validation split
+        if k_folds == 2:
+            if fold == 1:
+                break
         # Initialize the model and move it to the appropriate device
-        model = UNet2D(in_channels=1, out_channels=3).to(device)
+        model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths")).to(device)
 
+        # creat train and validation set for current split
         train_dataset = Subset(dataset, train_idx)
         val_dataset = Subset(dataset, val_idx)
 
@@ -84,11 +92,13 @@ for hyperparams in hyperparameters:
 
         optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
 
+        # dataloader with custom batch function such that all images in a batch get padded to the largest one
         dataloader = DataLoader(
             train_dataset, collate_fn=collate_fn, batch_size=hyperparams.get("batch_size"), shuffle=True)
 
         model.train()
-        fold_loss = []
+        fold_train_loss = []
+        fold_val_loss = []
         # Train the model
         for epoch in range(hyperparams['epochs']):
             epoch_loss = 0
@@ -96,6 +106,11 @@ for hyperparams in hyperparameters:
             print(f"epoch: {epoch}")
             for i, item in enumerate(dataloader):
                 input, target = item
+                # for debugging only take a small portion of the dataset
+                if debugging:
+                    if i > 10:
+                        break
+                # downsample images
                 if hyperparams.get('downsampling') < 1:
                     a = int(input.shape[2]*hyperparams.get('downsampling'))
                     b = int(input.shape[3]*hyperparams.get('downsampling'))
@@ -118,6 +133,7 @@ for hyperparams in hyperparameters:
                 else:
                     acc_loss = criterion(outputs, target)
                 loss += acc_loss
+                # accumulated loss to simulate larger batch sizes
                 if (i+1)%hyperparams.get("batch_size") == 0:
                     loss = loss / hyperparams.get("batch_size")
                     # Backward pass and optimization
@@ -125,53 +141,74 @@ for hyperparams in hyperparameters:
                     optimizer.step()
                     epoch_loss += loss.item()
                     loss = 0
-            fold_loss.append(epoch_loss/len(dataloader))
-        param_loss.append(fold_loss)
+            fold_train_loss.append(epoch_loss/len(dataloader))
+        
 
-        # Evaluate the model on the validation set
-        model.eval()
-        dice_normal = []
-        dice_benign = []
-        dice_malignant = []
-        HD_normal = []
-        HD_benign = []
-        HD_malignant = []
-        loss = 0
+            # Evaluate the model on the validation set
+            model.eval()
+            dice_normal = []
+            dice_benign = []
+            dice_malignant = []
+            HD_normal = []
+            HD_benign = []
+            HD_malignant = []
+            loss = 0
+            # use singel batch size fo easier data handeling
+            # evaluate at every epoch for early stopping
+            dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
+            for i, item in enumerate(dataloader):
+                with torch.no_grad():
+                    input, target = item
+                    if hyperparams.get('downsampling') < 1:
+                        a = int(input.shape[2]*hyperparams.get('downsampling'))
+                        b = int(input.shape[3]*hyperparams.get('downsampling'))
+                        input = F.interpolate(input, (a,b))
+                        target = F.interpolate(target,  (a,b))
+                    input = input.to(device)
+                    target = target.to(device)
+                    target = torch.squeeze(target, dim=1)
+                    target = target.to(torch.long)
 
-        dataloader = DataLoader(val_dataset, batch_size=1, shuffle=True)
-        for i, item in enumerate(dataloader):
-            input, target = item
-            if hyperparams.get('downsampling') < 1:
-                a = int(input.shape[2]*hyperparams.get('downsampling'))
-                b = int(input.shape[3]*hyperparams.get('downsampling'))
-                input = F.interpolate(input, (a,b))
-                target = F.interpolate(target,  (a,b))
-            input = input.to(device)
-            target = target.to(device)
-            target = torch.squeeze(target, dim=1)
-            target = target.to(torch.long)
+                    # Forward pass
+                    outputs = model(input)
+                    
+                    # if isinstance(criterion, SoftTunedDiceBCELoss):
+                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                    #     loss += criterion(outputs, target, epoch)
+                    # elif isinstance(criterion, nn.CrossEntropyLoss):
+                    #     loss += criterion(outputs, target)
+                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                    # else:
+                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                    #     loss += criterion(outputs, target)
+                    # evaluate only on dice score since its teh score we are optimizing for
+                    outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                    loss += soft_dice_loss(outputs, target)
+                # evaluate all metrics only in last epoch aka when the model is trained the best
+                if epoch == hyperparams['epochs']-1:
+                    # Calculate the evaluation metric
+                    if torch.max(target) == 1:
+                        dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
+                        target[target > 0] = 1
+                        outputs[outputs > 0] = 1
+                        HD_benign.append(hausdorff_distance(outputs, target))
+                    elif torch.max(target) == 2:
+                        dice_malignant.append(
+                            soft_dice_score(outputs, target).to("cpu"))
+                        target[target > 0] = 1
+                        outputs[outputs > 0] = 1
+                        HD_malignant.append(hausdorff_distance(outputs, target))
+                    elif torch.max(target) == 0:
+                        dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
 
-            # Forward pass
-            outputs = torch.argmax(model(input), dim=1, keepdim=False)
-            if isinstance(criterion, SoftTunedDiceBCELoss):
-                loss += criterion(outputs, target, epoch)
-            else:
-                loss += criterion(outputs, target)
-            val_loss.append(loss / len(dataset))
-            # Calculate the evaluation metric
-            if torch.max(target) == 1:
-                dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
-                target[target > 0] = 1
-                outputs[outputs > 0] = 1
-                HD_benign.append(hausdorff_distance(outputs, target))
-            elif torch.max(target) == 2:
-                dice_malignant.append(
-                    soft_dice_score(outputs, target).to("cpu"))
-                target[target > 0] = 1
-                outputs[outputs > 0] = 1
-                HD_malignant.append(hausdorff_distance(outputs, target))
-            elif torch.max(target) == 0:
-                dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
+            loss = loss.item()
+            fold_val_loss.append(loss/len(dataloader))
+        
+        
+
+        val_loss.append(fold_val_loss)
+
+        param_train_loss.append(fold_train_loss)
 
         dice_benign_mean = np.mean(dice_benign)
         dice_bening_std = np.std(dice_benign)
@@ -241,12 +278,18 @@ for hyperparams in hyperparameters:
                f'HD bening std': paramset_HD_bening_std,
                f'HD malignant std': paramset_HD_malignant_std})
 
-    param_loss = np.mean(param_loss, axis=0).tolist()
-    param_loss_with_epoch = [[train, val, i] for i, train, val in enumerate(zip(param_loss, val_loss))]
-    table_param_loss = wandb.Table(
-        data=param_loss_with_epoch, columns=["training loss", "validation loss", "epoch"])
+    param_train_loss = np.mean(param_train_loss, axis=0).tolist()
+    val_loss = np.mean(val_loss, axis=0).tolist()
+    param_train_loss_with_epoch = [[train, i] for i, train in enumerate(param_train_loss)]
+    param_val_loss_with_epoch = [[val, i] for i, val in enumerate(val_loss)]
+    table_param_train_loss = wandb.Table(
+        data=param_train_loss_with_epoch, columns=["training loss", "epoch"])
     wandb.log({f"{hyperparams.get('criterion')}": wandb.plot.line(
-        table_param_loss, "training loss", "validation loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
+        table_param_train_loss, "training loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
+    table_val_loss_with_epoch = wandb.Table(
+        data=param_val_loss_with_epoch, columns=["validation loss", "epoch"])
+    wandb.log({f"{hyperparams.get('criterion')}": wandb.plot.line(
+        table_val_loss_with_epoch, "validation loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
 
     # Print the results
     print('Hyperparameters:', hyperparams)
@@ -254,4 +297,5 @@ for hyperparams in hyperparameters:
     print('Dice Standard Deviation', paramset_dice_std)
     print('HD Mean:', paramset_HD_mean)
     print('HD Standard Deviation', paramset_HD_std)
-    print('Loss', param_loss)
+    print('Train Loss', param_train_loss)
+    print('Validation Loss', val_loss)
