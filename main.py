@@ -26,9 +26,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 1, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 1, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 1, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -90,7 +90,7 @@ for hyperparams in hyperparameters:
             criterion = SoftTunedDiceBCELoss(
                 total_epochs=hyperparams.get("epochs"))
 
-        optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
+        optimizer = optim.SGD(model.parameters(), lr=hyperparams['lr'], momentum=0.95, weight_decay=0.0001)
 
         # dataloader with custom batch function such that all images in a batch get padded to the largest one
         dataloader = DataLoader(
@@ -285,11 +285,11 @@ for hyperparams in hyperparameters:
     table_param_train_loss = wandb.Table(
         data=param_train_loss_with_epoch, columns=["training loss", "epoch"])
     wandb.log({f"{hyperparams.get('criterion')} training loss {hyperparams}": wandb.plot.line(
-        table_param_train_loss, "training loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
+        table_param_train_loss, "epoch","training loss", title=f"Average loss per epoch over {k_folds} folds")})
     table_val_loss_with_epoch = wandb.Table(
         data=param_val_loss_with_epoch, columns=["validation loss", "epoch"])
     wandb.log({f"{hyperparams.get('criterion')} validation loss {hyperparams}": wandb.plot.line(
-        table_val_loss_with_epoch, "validation loss", "epoch", title=f"Average loss per epoch over {k_folds} folds")})
+        table_val_loss_with_epoch, "epoch", "validation loss", title=f"Average loss per epoch over {k_folds} folds")})
 
     # Print the results
     print('Hyperparameters:', hyperparams)
