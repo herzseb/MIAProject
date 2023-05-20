@@ -26,9 +26,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 8, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
+    {'lr': 0.01, 'epochs': 200,  'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.0001, 'epochs': 200, 'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
 ]
 
 wandb.log({"runs": hyperparameters})
