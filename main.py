@@ -103,7 +103,6 @@ for hyperparams in hyperparameters:
         for epoch in range(hyperparams['epochs']):
             epoch_loss = 0
             loss = 0
-            print(f"epoch: {epoch}")
             for i, item in enumerate(dataloader):
                 input, target = item
                 # for debugging only take a small portion of the dataset
@@ -140,6 +139,7 @@ for hyperparams in hyperparameters:
                     loss.backward()
                     optimizer.step()
                     epoch_loss += loss.item()
+                    print(f"epoch: {epoch}, loss: {loss.item()}")
                     loss = 0
             fold_train_loss.append(epoch_loss/len(dataloader))
         
