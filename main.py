@@ -124,7 +124,7 @@ for hyperparams in hyperparameters:
                 optimizer.zero_grad()
 
                 # Forward pass
-                outputs = F.softmax(model(input), dim=1).cpu()
+                outputs = model(input).cpu()
 
                 # Compute the loss
                 if isinstance(criterion, SoftTunedDiceBCELoss):
@@ -139,9 +139,9 @@ for hyperparams in hyperparameters:
                     loss.backward()
                     optimizer.step()
                     epoch_loss += loss.item()
-                    print(f"epoch: {epoch}, loss: {loss.item()}")
                     loss = 0
             fold_train_loss.append(epoch_loss/len(dataloader))
+            print(f"epoch: {epoch}, loss: {epoch_loss/len(dataloader)}")
         
 
             # Evaluate the model on the validation set
@@ -182,7 +182,6 @@ for hyperparams in hyperparameters:
                     #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
                     #     loss += criterion(outputs, target)
                     # evaluate only on dice score since its teh score we are optimizing for
-                    outputs = torch.argmax(outputs, dim=1, keepdim=False)
                     loss += soft_dice_loss(outputs, target)
                 # evaluate all metrics only in last epoch aka when the model is trained the best
                 if epoch == hyperparams['epochs']-1:

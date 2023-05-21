@@ -42,6 +42,7 @@ def soft_dice_score(y_pred, y_true, epsilon=1e-6):
     
     # skip the batch and class axis for calculating Dice score
     #axes = (2,3)
+    y_pred = torch.argmax(y_pred, dim=1, keepdim=False)
     y_true = F.one_hot(y_true, 3).permute(0,3,1,2)
     if len(y_pred.shape) < 4:
         y_pred = F.one_hot(y_pred, 3).permute(0,3,1,2)
@@ -58,8 +59,8 @@ def soft_dice_score(y_pred, y_true, epsilon=1e-6):
     return mean_dice
     # return torch.mean((numerator + epsilon) / (denominator + epsilon)) # average over classes and batch
 
-def soft_dice_loss(y_true, y_pred, epsilon=1e-6):
-    return 1- soft_dice_score(y_true, y_pred, epsilon=1e-6)
+def soft_dice_loss(y_pred, y_true, epsilon=1e-6):
+    return 1- soft_dice_score(y_pred, y_true, epsilon=1e-6)
 
 
 
