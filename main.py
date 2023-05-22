@@ -13,6 +13,8 @@ import random
 random.seed(42)
 torch.manual_seed(42)
 np.random.seed(42)
+import time
+
 debugging = False
 # TODOS
 # bring everything into memory
@@ -26,9 +28,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 200,  'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.0001, 'epochs': 200, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
+    {'lr': 0.01, 'epochs': 250,  'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.0001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -140,8 +142,8 @@ for hyperparams in hyperparameters:
                     optimizer.step()
                     epoch_loss += loss.item()
                     loss = 0
-            fold_train_loss.append(epoch_loss/len(dataloader))
-            print(f"epoch: {epoch}, loss: {epoch_loss/len(dataloader)}")
+            fold_train_loss.append(epoch_loss/(i+1))
+            print(f"epoch: {epoch}, loss: {epoch_loss/(i+1)}")
         
 
             # Evaluate the model on the validation set
@@ -188,14 +190,16 @@ for hyperparams in hyperparameters:
                     # Calculate the evaluation metric
                     if torch.max(target) == 1:
                         dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
-                        target[target > 0] = 1
-                        outputs[outputs > 0] = 1
+                        outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                        outputs[outputs != 1] = 0
                         HD_benign.append(hausdorff_distance(outputs, target))
                     elif torch.max(target) == 2:
                         dice_malignant.append(
                             soft_dice_score(outputs, target).to("cpu"))
-                        target[target > 0] = 1
+                        outputs = torch.argmax(outputs, dim=1, keepdim=False)
+                        outputs[outputs != 2] = 0
                         outputs[outputs > 0] = 1
+                        target[target > 0] = 1
                         HD_malignant.append(hausdorff_distance(outputs, target))
                     elif torch.max(target) == 0:
                         dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
@@ -298,3 +302,8 @@ for hyperparams in hyperparameters:
     print('HD Standard Deviation', paramset_HD_std)
     print('Train Loss', param_train_loss)
     print('Validation Loss', val_loss)
+    path = "Unet_"
+    path += time.strftime("%Y%m%d-%H%M%S")
+    path += ".pt"
+    print(f'Save model to {path}')
+    torch.save(model, path)
