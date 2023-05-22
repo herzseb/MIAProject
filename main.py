@@ -28,9 +28,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 250,  'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.0001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)}
+    {'lr': 0.01, 'epochs': 250,  'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.0001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -98,13 +98,13 @@ for hyperparams in hyperparameters:
         dataloader = DataLoader(
             train_dataset, collate_fn=collate_fn, batch_size=hyperparams.get("batch_size"), shuffle=True)
 
-        model.train()
+        
         fold_train_loss = []
         fold_val_loss = []
         # Train the model
         for epoch in range(hyperparams['epochs']):
+            model.train()
             epoch_loss = 0
-            loss = 0
             for i, item in enumerate(dataloader):
                 input, target = item
                 # for debugging only take a small portion of the dataset
@@ -130,10 +130,10 @@ for hyperparams in hyperparameters:
 
                 # Compute the loss
                 if isinstance(criterion, SoftTunedDiceBCELoss):
-                    acc_loss = criterion(outputs, target, epoch)
+                    loss = criterion(outputs, target, epoch)
                 else:
-                    acc_loss = criterion(outputs, target)
-                loss += acc_loss
+                    loss = criterion(outputs, target)
+                
                 # accumulated loss to simulate larger batch sizes
                 if (i+1)%hyperparams.get("accumulative_loss") == 0:
                     loss = loss / hyperparams.get("accumulative_loss")
@@ -141,7 +141,6 @@ for hyperparams in hyperparameters:
                     loss.backward()
                     optimizer.step()
                     epoch_loss += loss.item()
-                    loss = 0
             fold_train_loss.append(epoch_loss/(i+1))
             print(f"epoch: {epoch}, loss: {epoch_loss/(i+1)}")
         
