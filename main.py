@@ -28,9 +28,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.01, 'epochs': 250,  'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
-    {'lr': 0.0001, 'epochs': 250, 'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'FocalLoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftTunedDiceBCELoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -172,6 +172,7 @@ for hyperparams in hyperparameters:
 
                     # Forward pass
                     outputs = model(input)
+                    outputs = torch.argmax(outputs, dim=1, keepdim=False)
                     
                     # if isinstance(criterion, SoftTunedDiceBCELoss):
                     #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
@@ -189,13 +190,11 @@ for hyperparams in hyperparameters:
                     # Calculate the evaluation metric
                     if torch.max(target) == 1:
                         dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
-                        outputs = torch.argmax(outputs, dim=1, keepdim=False)
                         outputs[outputs != 1] = 0
                         HD_benign.append(hausdorff_distance(outputs, target))
                     elif torch.max(target) == 2:
                         dice_malignant.append(
                             soft_dice_score(outputs, target).to("cpu"))
-                        outputs = torch.argmax(outputs, dim=1, keepdim=False)
                         outputs[outputs != 2] = 0
                         outputs[outputs > 0] = 1
                         target[target > 0] = 1
