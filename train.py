@@ -11,7 +11,7 @@ from aux import soft_dice_loss, soft_dice_score, FocalLoss, SoftTunedDiceBCELoss
 from net import UNet2D
 import random
 import matplotlib.pyplot as plt
-hyperparams = {'lr': 0.001, 'epochs': 20000,  'criterion': 'CrossEntropy', 'batch_size': 1, 'accumulative_loss': 1, 'downsampling': 0.3, "conv_depths": (8,16,32,64)}
+hyperparams = {'lr': 0.01, 'epochs': 20000,  'criterion': 'CrossEntropy', 'batch_size': 2, 'accumulative_loss': 1, 'downsampling': 0.3, "conv_depths": (8,16,32,64)}
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 dataset = SegmentationDataset("Dataset_BUSI_with_GT")
@@ -21,13 +21,13 @@ dataloader = DataLoader(
             dataset, collate_fn=collate_fn, batch_size=hyperparams.get("batch_size"), shuffle=True)
 # optimizer = optim.SGD(model.parameters(), lr=hyperparams['lr'], momentum=0.95, weight_decay=0.001)
 optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
-criterion = nn.CrossEntropyLoss()
+criterion = soft_dice_loss
 x = torch.randn(1, 1, 224, 224)
 y = torch.randint(0, 2, (1, 1, 224, 224)).float()
 for epoch in range(hyperparams['epochs']):
     total_loss = 0
     for i, item in enumerate(dataloader):
-        if i > 0:
+        if i > 10:
             break
         #input, target = item
         input, target = dataset[200]
@@ -41,7 +41,7 @@ for epoch in range(hyperparams['epochs']):
             target = F.interpolate(target,  (a,b))
         
         input = input.to(device)
-        target = target.cpu()
+        target = target.to(device)
         target = torch.squeeze(target, dim=1)
         target = target.to(torch.long)
 
@@ -50,10 +50,13 @@ for epoch in range(hyperparams['epochs']):
 
         # Forward pass
         outputs = model(input)
+        outputs = F.softmax(outputs, dim=1)
 
         # Compute the loss
-        loss = criterion(outputs.cpu(), target)
+        loss = criterion(outputs, target)
 
+        #print("val ", soft_dice_score(torch.argmax(outputs, dim=1, keepdim=False), target))
+        
         loss.backward()
         optimizer.step()
         total_loss += loss.item()

@@ -28,7 +28,7 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 1, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
     {'lr': 0.001, 'epochs': 250, 'criterion': 'FocalLoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
     {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftTunedDiceBCELoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
 ]

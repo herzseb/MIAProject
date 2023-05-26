@@ -42,8 +42,10 @@ def soft_dice_score(y_pred, y_true, epsilon=1e-6):
     
     # skip the batch and class axis for calculating Dice score
     #axes = (2,3)
+    val = False
     y_true = F.one_hot(y_true, 3).permute(0,3,1,2)
     if len(y_pred.shape) < 4:
+        val = True
         y_pred = F.one_hot(y_pred, 3).permute(0,3,1,2)
     # numerator = 2. * torch.sum(y_pred * y_true, axes)
     # denominator = torch.sum(torch.square(y_pred) + torch.square(y_true), axes)
@@ -54,7 +56,10 @@ def soft_dice_score(y_pred, y_true, epsilon=1e-6):
     dice = (2 * intersection + epsilon) / (union + epsilon)
     
     # Average the Dice coefficients across classes
-    mean_dice = torch.mean(dice)
+    if val:
+        mean_dice = torch.mean(dice)
+    else:
+        mean_dice = torch.sum(dice)/torch.count_nonzero(torch.sum(y_true, dim=(0, 2, 3)))
     return mean_dice
     # return torch.mean((numerator + epsilon) / (denominator + epsilon)) # average over classes and batch
 
@@ -82,17 +87,35 @@ class SoftTunedDiceBCELoss(nn.Module):
 
 
 # https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch
-class FocalLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(FocalLoss, self).__init__()
-        self.alpha = 0.8
-        self.gamma = 2
+# class FocalLoss(nn.Module):
+#     def __init__(self, weight=None, size_average=True):
+#         super(FocalLoss, self).__init__()
+#         self.alpha = 0.8
+#         self.gamma = 2
 
-    def forward(self, inputs, targets, smooth=1):      
-        CE = F.cross_entropy(inputs, targets, reduction='mean')
-        CE_EXP = torch.exp(-CE)
-        focal_loss = self.alpha * (1-CE_EXP)**self.gamma * CE
+#     def forward(self, inputs, targets, smooth=1):      
+#         CE = F.cross_entropy(inputs, targets, reduction='mean')
+#         CE_EXP = torch.exp(-CE)
+#         focal_loss = self.alpha * (1-CE_EXP)**self.gamma * CE
                        
-        return focal_loss
+#         return focal_loss
 
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=0.5, gamma=2, ignore_index=None):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.ignore_index = ignore_index
+        self.ce_loss = nn.CrossEntropyLoss(reduction='none')
 
+    def forward(self, inputs, targets):
+        ce_loss = self.ce_loss(inputs, targets).view(-1)
+
+        if self.ignore_index is not None:
+            valid_indices = targets != self.ignore_index
+            inputs = inputs[valid_indices]
+            targets = targets[valid_indices]
+
+        probs = torch.exp(-ce_loss)
+        focal_loss= self.alpha * (1 - probs) ** self.gamma * ce_loss
+        return torch.mean(focal_loss)
