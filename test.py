@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, Subset
 from aux import soft_dice_loss, soft_dice_score, FocalLoss, SoftTunedDiceBCELoss, hausdorff_distance
 from net import UNet2D
 import random
+import matplotlib.pyplot as plt
 random.seed(42)
 torch.manual_seed(42)
 np.random.seed(42)
@@ -17,7 +18,7 @@ np.random.seed(42)
 # Initialize wandb
 wandb.init(project='MIA-project')
 
-hyperparams = {'modelpath':"test.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
+hyperparams = {'modelpath':"Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
 wandb.log({"params": hyperparams})
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -44,8 +45,10 @@ train_indices, test_indices, _, _ = train_test_split(range(len(dataset)), labels
 # generate subset based on indices
 train_set = Subset(dataset, train_indices)
 test_set = Subset(dataset, test_indices)
-
-model = torch.load("test.pt")
+model = torch.load(hyperparams["modelpath"])
+# model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths"))
+# model.load_state_dict(torch.load(hyperparams["modelpath"]))
+model.eval()
 model = model.to(device)
 # Evaluate the model on the test set
 model.eval()
@@ -59,6 +62,7 @@ loss = 0
 # use singel batch size fo easier data handeling
 # evaluate at every epoch for early stopping
 dataloader = DataLoader(test_set, batch_size=1, shuffle=True)
+fig, ax = plt.subplots(3)
 for i, item in enumerate(dataloader):
     with torch.no_grad():
         input, target = item
@@ -75,6 +79,7 @@ for i, item in enumerate(dataloader):
         # Forward pass
         outputs = model(input)
         outputs = torch.argmax(outputs, dim=1, keepdim=False)
+        
     
         # Calculate the evaluation metric
         if torch.max(target) == 1:
@@ -91,6 +96,10 @@ for i, item in enumerate(dataloader):
         elif torch.max(target) == 0:
             dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
 
+        ax[0].imshow(input[0,0].cpu())
+        ax[1].imshow(target[0].cpu())
+        ax[2].imshow(outputs[0].cpu())
+        plt.savefig(f"out/{i}.png")
 
 dice_benign_mean = np.mean(dice_benign)
 dice_bening_std = np.std(dice_benign)
