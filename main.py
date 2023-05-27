@@ -16,7 +16,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 import time
 
-debugging = False
+debugging = True
 # TODOS
 # bring everything into memory
 
@@ -29,7 +29,7 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 1, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
     {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 2, 'accumulative_loss': 2,  'downsampling': 1, "conv_depths": (32, 64, 128, 256, 512)},
     {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 0.75, "conv_depths": (32, 64, 128, 256, 512)}
 ]
@@ -206,9 +206,10 @@ for hyperparams in hyperparameters:
                         dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
 
             loss = loss.item()
+            fold_val_loss.append(loss/(i+1))
             if loss/(i+1) < np.min(fold_val_loss):
                 best_params = deepcopy(model.state_dict())
-            fold_val_loss.append(loss/(i+1))
+            
         
             scheduler.step()
 
