@@ -10,6 +10,7 @@ import re
 class SegmentationDataset(Dataset):
     def __init__(self, data_dir):
         self.data_dir = data_dir
+        self.labels = []
         self.file_list = self.get_file_list()
         self.transform = T.Compose([
         #T.RandomResizedCrop(image_size),
@@ -17,6 +18,7 @@ class SegmentationDataset(Dataset):
         T.ToTensor(),
         T.Grayscale(),
         ])
+        
 
     def __len__(self):
         return len(self.file_list)
@@ -71,6 +73,7 @@ class SegmentationDataset(Dataset):
                             mask_paths.append(additional_mask_path)
                             i += 1
                     file_list.append((image_path, mask_paths))
+                    self.labels.append(class_name)
         return file_list
 
 

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 import numpy as np
 import wandb
 from data import SegmentationDataset, collate_fn
@@ -28,9 +28,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'FocalLoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftTunedDiceBCELoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'CrossEntropy', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'FocalLoss', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -40,18 +40,16 @@ k_folds = 2
 
 # Define the dataset and labels (assuming binary classification)
 dataset = SegmentationDataset("Dataset_BUSI_with_GT")
-# dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
-labels = []
-for path in dataset.file_list:
-    if "benign" in path[0]:
-        labels.append("benign")
-    elif "malignant" in path[0]:
-        labels.append("malignant")
-    elif "normal" in path[0]:
-        labels.append("normal")
-print(
-    f"dataset: benign: {labels.count('benign')}, malignant: {labels.count('malignant')}, normal: {labels.count('normal')}")
 
+print(
+    f"dataset: benign: {dataset.labels.count('benign')}, malignant: {dataset.labels.count('malignant')}, normal: {dataset.labels.count('normal')}")
+
+# generate indices: instead of the actual data we pass in integers instead
+train_indices, test_indices, train_labels, test_labels = train_test_split(range(len(dataset)), dataset.labels, stratify=dataset.labels, test_size=0.15, random_state=42)
+
+# generate subset based on indices
+train_set = Subset(dataset, train_indices)
+test_set = Subset(dataset, test_indices)
 # Test dice score manually
 # pred = torch.tensor([[[[0.1,0.1,1],[0.1,0.1,1],[1,1,1]], [[0.9,0.9,0],[0.9,0.9,0],[0,0,0]], [[0,0,0],[0,0,0],[0,0,0]]]])
 # target = torch.tensor([[[1,1,0],[1,1,0],[0,0,0]]])
@@ -69,7 +67,7 @@ for hyperparams in hyperparameters:
     fold_results = []
     param_train_loss = []
     val_loss = []
-    for fold, (train_idx, val_idx) in enumerate(skf.split(dataset, labels)):
+    for fold, (train_idx, val_idx) in enumerate(skf.split(train_set, train_labels)):
         # for greedy optimization act as normal train validation split
         if k_folds == 2:
             if fold == 1:
@@ -78,8 +76,8 @@ for hyperparams in hyperparameters:
         model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths")).to(device)
 
         # creat train and validation set for current split
-        train_dataset = Subset(dataset, train_idx)
-        val_dataset = Subset(dataset, val_idx)
+        train_dataset = Subset(train_set, train_idx)
+        val_dataset = Subset(train_set, val_idx)
 
         # Define the loss function and optimizer
         if hyperparams.get("criterion") == "CrossEntropy":
@@ -207,7 +205,7 @@ for hyperparams in hyperparameters:
                         dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
 
             loss = loss.item()
-            fold_val_loss.append(loss/len(dataloader))
+            fold_val_loss.append(loss/(i+1))
         
         
 

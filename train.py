@@ -55,7 +55,7 @@ for epoch in range(hyperparams['epochs']):
         # Compute the loss
         loss = criterion(outputs, target)
 
-        #print("val ", soft_dice_score(torch.argmax(outputs, dim=1, keepdim=False), target))
+        print("val ", soft_dice_score(torch.argmax(outputs, dim=1, keepdim=False), target))
         
         loss.backward()
         optimizer.step()
