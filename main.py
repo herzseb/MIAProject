@@ -16,7 +16,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 import time
 
-debugging = True
+debugging = False
 # TODOS
 # bring everything into memory
 
