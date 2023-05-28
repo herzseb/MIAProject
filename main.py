@@ -29,9 +29,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (64, 128, 256, 512, 1024)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 2, 'accumulative_loss': 2,  'downsampling': 1, "conv_depths": (32, 64, 128, 256, 512)},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 4, 'accumulative_loss': 1,  'downsampling': 0.75, "conv_depths": (32, 64, 128, 256, 512)}
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32,64, 128, 256, 512), "augment": True, "dropout": False},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), "augment": True, "dropout": 0.5},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), "augment": True, "dropout": 0.5}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -40,7 +40,7 @@ wandb.log({"runs": hyperparameters})
 k_folds = 2
 
 # Define the dataset and labels (assuming binary classification)
-dataset = SegmentationDataset("Dataset_BUSI_with_GT")
+dataset = SegmentationDataset("Dataset_BUSI_with_GT", hyperparameters[0]["augment"])
 
 print(
     f"dataset: benign: {dataset.labels.count('benign')}, malignant: {dataset.labels.count('malignant')}, normal: {dataset.labels.count('normal')}")

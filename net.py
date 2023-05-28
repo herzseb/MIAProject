@@ -28,20 +28,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class UNet2D(nn.Module):
-    def __init__(self, in_channels, out_channels, conv_depths=(64, 128, 256, 512, 1024)):
+    def __init__(self, in_channels, out_channels, conv_depths=(64, 128, 256, 512, 1024), dropout=False):
         assert len(conv_depths) > 2, 'conv_depths must have at least 3 members'
 
         super(UNet2D, self).__init__()
 
         # defining encoder layers
         encoder_layers = []
-        encoder_layers.append(First2D(in_channels, conv_depths[0], conv_depths[0]))
-        encoder_layers.extend([Encoder2D(conv_depths[i], conv_depths[i + 1], conv_depths[i + 1])
+        encoder_layers.append(First2D(in_channels, conv_depths[0], conv_depths[0], drop=dropout))
+        encoder_layers.extend([Encoder2D(conv_depths[i], conv_depths[i + 1], conv_depths[i + 1], dropout=dropout)
                                for i in range(len(conv_depths)-2)])
 
         # defining decoder layers
         decoder_layers = []
-        decoder_layers.extend([Decoder2D(2 * conv_depths[i + 1], 2 * conv_depths[i], 2 * conv_depths[i], conv_depths[i])
+        decoder_layers.extend([Decoder2D(2 * conv_depths[i + 1], 2 * conv_depths[i], 2 * conv_depths[i], conv_depths[i], dropout=dropout)
                                for i in reversed(range(len(conv_depths)-2))])
         decoder_layers.append(Last2D(conv_depths[1], conv_depths[0], out_channels))
 

@@ -8,17 +8,22 @@ import matplotlib.pyplot as plt
 import re
 
 class SegmentationDataset(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, augment=False):
         self.data_dir = data_dir
         self.labels = []
         self.file_list = self.get_file_list()
         self.transform = T.Compose([
         #T.RandomResizedCrop(image_size),
-        #T.RandomHorizontalFlip(),
+        
         T.ToTensor(),
         T.Grayscale(),
         ])
-        
+        self.augment = augment
+        self.augment_transform = T.Compose([
+            T.ColorJitter(0.2,0.2,),
+            T.RandomHorizontalFlip(0.5),
+            T.GaussianBlur(5, sigma=(0.0001, 0.5))
+        ])
 
     def __len__(self):
         return len(self.file_list)
@@ -28,6 +33,10 @@ class SegmentationDataset(Dataset):
         mask_paths = self.file_list[idx][1]
         image = Image.open(image_path).convert("RGB")
         image = self.transform(image)
+        if self.augment:
+            image = self.augment_transform(image)
+        plt.imshow(image[0])
+        plt.show()
         mean = torch.mean(image)
         std = torch.std(image)
         norm = T.Normalize(mean, std)
