@@ -35,8 +35,6 @@ class SegmentationDataset(Dataset):
         image = self.transform(image)
         if self.augment:
             image = self.augment_transform(image)
-        plt.imshow(image[0])
-        plt.show()
         mean = torch.mean(image)
         std = torch.std(image)
         norm = T.Normalize(mean, std)

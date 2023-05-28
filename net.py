@@ -35,7 +35,7 @@ class UNet2D(nn.Module):
 
         # defining encoder layers
         encoder_layers = []
-        encoder_layers.append(First2D(in_channels, conv_depths[0], conv_depths[0], drop=dropout))
+        encoder_layers.append(First2D(in_channels, conv_depths[0], conv_depths[0], dropout=dropout))
         encoder_layers.extend([Encoder2D(conv_depths[i], conv_depths[i + 1], conv_depths[i + 1], dropout=dropout)
                                for i in range(len(conv_depths)-2)])
 
