@@ -16,7 +16,7 @@ torch.manual_seed(42)
 np.random.seed(42)
 import time
 
-debugging = False
+debugging = True
 # TODOS
 # bring everything into memory
 
@@ -29,9 +29,9 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1, 'downsampling': 0.5, "conv_depths": (32,64, 128, 256, 512), "augment": True, "dropout": False},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 12, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), "augment": True, "dropout": 0.5},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 6, 'accumulative_loss': 1,  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), "augment": True, "dropout": 0.5}
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1, 'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1,  'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5},
+    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 6, 'acc_loss': 1,  'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5}
 ]
 
 wandb.log({"runs": hyperparameters})
@@ -40,7 +40,7 @@ wandb.log({"runs": hyperparameters})
 k_folds = 2
 
 # Define the dataset and labels (assuming binary classification)
-dataset = SegmentationDataset("Dataset_BUSI_with_GT", hyperparameters[0]["augment"])
+dataset = SegmentationDataset("Dataset_BUSI_with_GT", augment=True)
 
 print(
     f"dataset: benign: {dataset.labels.count('benign')}, malignant: {dataset.labels.count('malignant')}, normal: {dataset.labels.count('normal')}")
@@ -73,7 +73,7 @@ for hyperparams in hyperparameters:
             if fold == 1:
                 break
         # Initialize the model and move it to the appropriate device
-        model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths")).to(device)
+        model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("features"), dropout=hyperparams.get("dp")).to(device)
         
         # creat train and validation set for current split
         train_dataset = Subset(train_set, train_idx)
@@ -111,9 +111,9 @@ for hyperparams in hyperparameters:
                     if i > 10:
                         break
                 # downsample images
-                if hyperparams.get('downsampling') < 1:
-                    a = int(input.shape[2]*hyperparams.get('downsampling'))
-                    b = int(input.shape[3]*hyperparams.get('downsampling'))
+                if hyperparams.get('downsample') < 1:
+                    a = int(input.shape[2]*hyperparams.get('downsample'))
+                    b = int(input.shape[3]*hyperparams.get('downsample'))
                     input = F.interpolate(input, (a,b))
                     target = F.interpolate(target,  (a,b))
                 input = input.to(device)
@@ -138,8 +138,8 @@ for hyperparams in hyperparameters:
                     loss = criterion(outputs, target)
                 
                 # accumulated loss to simulate larger batch sizes
-                if (i+1)%hyperparams.get("accumulative_loss") == 0:
-                    loss = loss / hyperparams.get("accumulative_loss")
+                if (i+1)%hyperparams.get("acc_loss") == 0:
+                    loss = loss / hyperparams.get("acc_loss")
                     # Backward pass and optimization
                     loss.backward()
                     optimizer.step()
@@ -163,9 +163,9 @@ for hyperparams in hyperparameters:
             for i, item in enumerate(dataloader):
                 with torch.no_grad():
                     input, target = item
-                    if hyperparams.get('downsampling') < 1:
-                        a = int(input.shape[2]*hyperparams.get('downsampling'))
-                        b = int(input.shape[3]*hyperparams.get('downsampling'))
+                    if hyperparams.get('downsample') < 1:
+                        a = int(input.shape[2]*hyperparams.get('downsample'))
+                        b = int(input.shape[3]*hyperparams.get('downsample'))
                         input = F.interpolate(input, (a,b))
                         target = F.interpolate(target,  (a,b))
                     input = input.to(device)
