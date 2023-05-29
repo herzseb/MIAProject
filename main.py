@@ -18,7 +18,7 @@ import time
 
 debugging = False
 # TODOS
-# bring everything into memory
+# bring everything into memory 
 
 # Initialize wandb
 wandb.init(project='MIA-project')
@@ -29,9 +29,7 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1, 'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1,  'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5},
-    {'lr': 0.001, 'epochs': 250, 'criterion': 'SoftDice', 'batch_size': 6, 'acc_loss': 1,  'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5}
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1, 'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5},
 ]
 
 wandb.log({"runs": hyperparameters})
