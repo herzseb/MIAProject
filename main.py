@@ -17,8 +17,7 @@ np.random.seed(42)
 import time
 
 debugging = False
-# TODOS
-# bring everything into memory 
+ 
 
 # Initialize wandb
 wandb.init(project='MIA-project')
@@ -38,7 +37,7 @@ wandb.log({"runs": hyperparameters})
 k_folds = 2
 
 # Define the dataset and labels (assuming binary classification)
-dataset = SegmentationDataset("Dataset_BUSI_with_GT", augment=True)
+dataset = SegmentationDataset("Dataset_BUSI_with_GT", augment=False)
 
 print(
     f"dataset: benign: {dataset.labels.count('benign')}, malignant: {dataset.labels.count('malignant')}, normal: {dataset.labels.count('normal')}")
