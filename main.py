@@ -17,7 +17,6 @@ np.random.seed(42)
 import time
 
 debugging = False
- 
 
 # Initialize wandb
 wandb.init(project='MIA-project')
@@ -269,6 +268,7 @@ for hyperparams in hyperparameters:
     val_loss = np.mean(val_loss, axis=0).tolist()
     param_train_loss_with_epoch = [[train, i] for i, train in enumerate(param_train_loss)]
     param_val_loss_with_epoch = [[val, i] for i, val in enumerate(val_loss)]
+    print_folds = k_folds
     if k_folds == 2:
         print_folds = 1
     table_param_train_loss = wandb.Table(
