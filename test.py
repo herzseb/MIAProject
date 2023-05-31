@@ -1,3 +1,4 @@
+from threading import active_count
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,13 +8,15 @@ import numpy as np
 import wandb
 from data import SegmentationDataset, collate_fn
 from torch.utils.data import DataLoader, Subset
-from aux import soft_dice_loss, soft_dice_score, FocalLoss, SoftTunedDiceBCELoss, hausdorff_distance
+from aux import soft_dice_loss, soft_dice_score, FocalLoss, SoftTunedDiceBCELoss, hausdorff_distance, snake_mask
 from net import UNet2D
 import random
 import matplotlib.pyplot as plt
 random.seed(42)
 torch.manual_seed(42)
 np.random.seed(42)
+import cv2
+
 
 # Initialize wandb
 wandb.init(project='MIA-project')
@@ -62,7 +65,7 @@ loss = 0
 # use singel batch size fo easier data handeling
 # evaluate at every epoch for early stopping
 dataloader = DataLoader(test_set, batch_size=1, shuffle=True)
-fig, ax = plt.subplots(3)
+
 for i, item in enumerate(dataloader):
     with torch.no_grad():
         input, target = item
@@ -78,9 +81,19 @@ for i, item in enumerate(dataloader):
 
         # Forward pass
         outputs = model(input)
-        outputs = torch.argmax(outputs, dim=1, keepdim=False)
-        
-    
+        probs = F.softmax(outputs, dim=1)
+        probs = probs.cpu()
+        if torch.sum(1-probs[0,0]) < 50:
+            outputs = torch.argmax(outputs, dim=1, keepdim=False)
+        else:
+            if torch.sum(probs[0,1]) > torch.sum(probs[0,2]):
+                mask = probs[0,1]
+                outputs = snake_mask(mask)
+            else:
+                mask = probs[0,2]
+                outputs = snake_mask(mask)
+                outputs = outputs * 2
+
         # Calculate the evaluation metric
         if torch.max(target) == 1:
             dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
@@ -95,11 +108,23 @@ for i, item in enumerate(dataloader):
             HD_malignant.append(hausdorff_distance(outputs, target))
         elif torch.max(target) == 0:
             dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
+        
+        
 
-        ax[0].imshow(input[0,0].cpu())
-        ax[1].imshow(target[0].cpu())
-        ax[2].imshow(outputs[0].cpu())
+        contours_target, _ = cv2.findContours(target[0].cpu().numpy().astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours_mask, _ = cv2.findContours(outputs[0].cpu().numpy().astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # contours_target = cv2.Canny(target[0].cpu().numpy().astype(np.uint8)*255, 0, 255)
+        # contours_mask = cv2.Canny(outputs[0].cpu().numpy().astype(np.uint8)*255, 0, 255)
+        plt.imshow(input[0,0].cpu())
+        if contours_target:
+            contours_target = np.vstack((contours_target[0], np.expand_dims(contours_target[0][0], axis=0)))
+            plt.plot(contours_target[:,0,0], contours_target[:,0,1], 'g')
+        if contours_mask:
+            contours_mask = np.vstack((contours_mask[0], np.expand_dims(contours_mask[0][0], axis=0)))
+            plt.plot(contours_mask[:,0,0], contours_mask[:,0,1], 'r')
         plt.savefig(f"out/{i}.png")
+        plt.cla()
+        
 
 dice_benign_mean = np.mean(dice_benign)
 dice_bening_std = np.std(dice_benign)
@@ -131,6 +156,9 @@ wandb.log({f'Dice mean': np.mean([dice_benign_mean, dice_normal_mean, dice_malig
 
 # Print the results
 print('Hyperparameters: ', hyperparams)
+print('Dice bening mean: ',dice_benign_mean)
+print('Dice normal mean: ', dice_normal_mean)
+print('Dice malignant mean: ',dice_malignant_mean)
 print('Dice Mean: ', np.mean([dice_benign_mean, dice_normal_mean, dice_malignant_mean]))
 print('Dice Standard Deviation: ', np.mean([dice_bening_std, dice_normal_std, dice_malignant_std]))
 print('HD Mean: ',  np.mean([HD_benign_mean, HD_malignant_mean]))

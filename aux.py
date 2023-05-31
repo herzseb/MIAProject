@@ -3,6 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from scipy.spatial.distance import directed_hausdorff
+import cv2
+from skimage.segmentation import active_contour
+from skimage.filters import gaussian
+from skimage.draw import polygon
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def hausdorff_distance(pred, target):
     # Convert the masks to numpy arrays if they are not already
@@ -119,3 +124,85 @@ class FocalLoss(nn.Module):
         probs = torch.exp(-ce_loss)
         focal_loss= self.alpha * (1 - probs) ** self.gamma * ce_loss
         return torch.mean(focal_loss)
+
+
+def rectangle(points, num_points=20):
+    p1 = points[0]
+    p2 = points[1]
+    p3 = points[2]
+    p4 = points[3]
+
+    x_interp_12 = np.linspace(p1[0], p2[0], num_points+2)[1:-1]
+    y_interp_12 = np.linspace(p1[1], p2[1], num_points+2)[1:-1]
+    interp_points_12 = np.column_stack((x_interp_12, y_interp_12))
+    x_interp_23 = np.linspace(p2[0], p3[0], num_points+2)[1:-1]
+    y_interp_23 = np.linspace(p2[1], p3[1], num_points+2)[1:-1]
+    interp_points_23 = np.column_stack((x_interp_23, y_interp_23))
+    x_interp_34 = np.linspace(p3[0], p4[0], num_points+2)[1:-1]
+    y_interp_34 = np.linspace(p3[1], p4[1], num_points+2)[1:-1]
+    interp_points_34 = np.column_stack((x_interp_34, y_interp_34))
+    x_interp_41 = np.linspace(p4[0], p1[0], num_points+2)[1:-1]
+    y_interp_41 = np.linspace(p4[1], p1[1], num_points+2)[1:-1]
+    interp_points_41 = np.column_stack((x_interp_41, y_interp_41))
+    interpolated_points = np.vstack((interp_points_12, interp_points_23, interp_points_34, interp_points_41))
+    return interpolated_points
+
+def snake_mask(mask):
+# Step 1: Extract the edges from the segmentation mask
+    _, mask = cv2.threshold(np.array(mask), 0.1, 1, cv2.THRESH_BINARY)
+    mask = mask.astype(np.uint8) * 255
+    kernel_size = 5
+    structuring_element = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+
+    # Perform morphological dilation to grow the regions
+    mask = cv2.dilate(mask, structuring_element)
+
+            # Perform connected component analysis
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask)
+
+    # Find the index of the largest component (excluding background label)
+    largest_component_index = np.argmax(stats[1:, cv2.CC_STAT_AREA]) + 1
+
+    # Create a mask containing only the largest component
+    mask = np.uint8(labels == largest_component_index) * 255
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = np.vstack((contours))
+
+    # Find the bounding box that contains all components#
+    x, y, w, h = cv2.boundingRect(contours)
+    rectangle_offset = 10
+    x = x - rectangle_offset
+    y = y - rectangle_offset
+    w = w + rectangle_offset*2
+    h = h + rectangle_offset*2
+
+    # center, radius = cv2.minEnclosingCircle(contours)
+    # radius = radius + 10
+    # # Create an initial circular guess with 100 sample points
+    # theta = np.linspace(0, 2 * np.pi, 50)
+    # x = center[0] + radius * np.cos(theta)
+    # y = center[1] + radius * np.sin(theta)
+    # circle = np.column_stack((y, x))
+    # Create an initial rectangular guess that contains all components
+    rect = np.array([[y, x], [y + h, x], [y + h, x + w], [y, x + w], [y, x]])
+    rect = rectangle(rect, num_points=50)
+    #plt.plot(rect[:, 1], rect[:, 0], '.r')
+    # Active contour parameters
+    alpha = 0.15  # Weight of the contour energy term
+    beta = 2.0  # Weight of the image energy term
+    gamma = 0.001
+    iterations = 1000  # Number of iterations
+
+    # Perform active contour segmentation
+    snake = active_contour(gaussian(mask), rect, alpha=alpha, beta=beta, gamma=gamma, max_num_iter=iterations)
+
+    #plt.plot(snake[:, 1], snake[:, 0], '.g')
+    #plt.show()
+
+    rr, cc = polygon(snake[:, 1], snake[:, 0])
+    mask[cc-1, rr-1] = 255
+    mask = cv2.erode(mask, structuring_element)
+    mask = mask / 255
+    outputs = torch.unsqueeze(torch.tensor(mask), dim=0).to(dtype=torch.long)
+    outputs = outputs.to(device)
+    return outputs

@@ -28,13 +28,13 @@ print(device)
 
 # Define your hyperparameter sets
 hyperparameters = [
-    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1, 'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.5},
+    {'lr': 0.001, 'epochs': 250,  'criterion': 'SoftDice', 'batch_size': 12, 'acc_loss': 1, 'downsample': 0.5, "features": (32, 64, 128, 256, 512), "dp": 0.},
 ]
 
 wandb.log({"runs": hyperparameters})
 
 # Define the number of folds for cross-validation
-k_folds = 2
+k_folds = 3
 
 # Define the dataset and labels (assuming binary classification)
 dataset = SegmentationDataset("Dataset_BUSI_with_GT", augment=False)
