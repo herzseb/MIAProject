@@ -235,6 +235,12 @@ for hyperparams in hyperparameters:
             [HD_benign_mean, HD_malignant_mean])
         fold_results_HD_std.append(
             [HD_bening_std, HD_malignant_std])
+        
+        path = "Unet_"
+        path += time.strftime("%Y%m%d-%H%M%S")
+        path += ".pt"
+        print(f'Save state dict to {path}')
+        torch.save(best_params, path)
 
         # Log the evaluation metric for the current fold
         # wandb.log(
@@ -249,6 +255,8 @@ for hyperparams in hyperparameters:
         # wandb.log({f"Fold {fold + 1} Dice std": wandb.plot.line(table_dice_std, "normal", "benign", "malignant", title=f"Fold {fold + 1} Dice std")})
         # wandb.log({f"Fold {fold + 1} HD mean": wandb.plot.line(table_HD_mean, "normal", "benign", "malignant", title=f"Fold {fold + 1} HD mean")})
         # wandb.log({f"Fold {fold + 1} HD std": wandb.plot.line(table_HD_std, "normal", "benign", "malignant", title=f"Fold {fold + 1} HD std")})
+
+    
 
     paramset_dice_benign_mean = np.mean(fold_results_dice_mean, axis=0)[0]
     paramset_dice_normal_mean = np.mean(fold_results_dice_mean, axis=0)[1]
@@ -306,8 +314,8 @@ for hyperparams in hyperparameters:
     print('HD Standard Deviation', paramset_HD_std)
     print('Train Loss', param_train_loss)
     print('Validation Loss', val_loss)
-    path = "Unet_"
-    path += time.strftime("%Y%m%d-%H%M%S")
-    path += ".pt"
-    print(f'Save state dict to {path}')
-    torch.save(best_params, path)
+    # path = "Unet_"
+    # path += time.strftime("%Y%m%d-%H%M%S")
+    # path += ".pt"
+    # print(f'Save state dict to {path}')
+    # torch.save(best_params, path)
