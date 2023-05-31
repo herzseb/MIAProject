@@ -24,7 +24,7 @@ import cv2
 
 # Initialize wandb
 wandb.init(project='MIA-project')
-hyperparams = {'modelpath':"Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False}
+hyperparams = {'modelpath':"Unet_20230528-035726.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': True}
 wandb.log({"params": hyperparams})
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

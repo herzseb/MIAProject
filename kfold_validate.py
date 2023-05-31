@@ -24,9 +24,9 @@ np.random.seed(42)
 
 # Initialize wandb
 wandb.init(project='MIA-project')
-hyperparams = [{'modelpath': "Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False},
-               {'modelpath': "Unet_20230527-115530.pt",  'downsampling': 0.5,"conv_depths": (32, 64, 128, 256, 512), 'postprocess': False},
-               {'modelpath': "Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False}]
+hyperparams = [{'modelpath': "Unet_20230531-131629.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False},
+               {'modelpath': "Unet_20230531-135323.pt",  'downsampling': 0.5,"conv_depths": (32, 64, 128, 256, 512), 'postprocess': False},
+               {'modelpath': "Unet_20230531-142958.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False}]
 wandb.log({"params": hyperparams})
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

@@ -116,6 +116,10 @@ def rectangle(points, num_points=20):
 def snake_mask(mask):
     # threshold activations to binary mask
     _, mask = cv2.threshold(np.array(mask), 0.1, 1, cv2.THRESH_BINARY)
+    if np.max(mask) == 0:
+        outputs = torch.unsqueeze(torch.tensor(mask), dim=0).to(dtype=torch.long)
+        outputs = outputs.to(device)
+        return outputs
     mask = mask.astype(np.uint8) * 255
     # dilate to connect activations
     kernel_size = 5
