@@ -1,3 +1,7 @@
+"""
+evaluate model in test dataset
+"""
+
 from threading import active_count
 import torch
 import torch.nn as nn
@@ -20,8 +24,7 @@ import cv2
 
 # Initialize wandb
 wandb.init(project='MIA-project')
-
-hyperparams = {'modelpath':"Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512)}
+hyperparams = {'modelpath':"Unet_20230527-115530.pt",  'downsampling': 0.5, "conv_depths": (32, 64, 128, 256, 512), 'postprocess': False}
 wandb.log({"params": hyperparams})
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -39,18 +42,15 @@ for path in dataset.file_list:
         labels.append("malignant")
     elif "normal" in path[0]:
         labels.append("normal")
-print(
-    f"dataset: benign: {labels.count('benign')}, malignant: {labels.count('malignant')}, normal: {labels.count('normal')}")
 
 # generate indices: instead of the actual data we pass in integers instead
 train_indices, test_indices, _, _ = train_test_split(range(len(dataset)), labels, stratify=labels, test_size=0.15, random_state=42)
 
 # generate subset based on indices
-train_set = Subset(dataset, train_indices)
 test_set = Subset(dataset, test_indices)
-model = torch.load(hyperparams["modelpath"])
-# model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths"))
-# model.load_state_dict(torch.load(hyperparams["modelpath"]))
+# model = torch.load(hyperparams["modelpath"])
+model = UNet2D(in_channels=1, out_channels=3, conv_depths=hyperparams.get("conv_depths"))
+model.load_state_dict(torch.load(hyperparams["modelpath"]))
 model.eval()
 model = model.to(device)
 # Evaluate the model on the test set
@@ -81,20 +81,25 @@ for i, item in enumerate(dataloader):
 
         # Forward pass
         outputs = model(input)
-        probs = F.softmax(outputs, dim=1)
-        probs = probs.cpu()
-        if torch.sum(1-probs[0,0]) < 50:
-            outputs = torch.argmax(outputs, dim=1, keepdim=False)
-        else:
-            if torch.sum(probs[0,1]) > torch.sum(probs[0,2]):
-                mask = probs[0,1]
-                outputs = snake_mask(mask)
+        if hyperparams["postprocess"]:
+            # convert to likelihoods
+            probs = F.softmax(outputs, dim=1)
+            probs = probs.cpu()
+            # get most common class, if non-background class, apply postprocessing
+            if torch.sum(1-probs[0,0]) < 50:
+                outputs = torch.argmax(outputs, dim=1, keepdim=False)
             else:
-                mask = probs[0,2]
-                outputs = snake_mask(mask)
-                outputs = outputs * 2
+                if torch.sum(probs[0,1]) > torch.sum(probs[0,2]):
+                    mask = probs[0,1]
+                    outputs = snake_mask(mask)
+                else:
+                    mask = probs[0,2]
+                    outputs = snake_mask(mask)
+                    outputs = outputs * 2
+        else:
+            outputs = torch.argmax(outputs, dim=1)
 
-        # Calculate the evaluation metric
+        # Calculate the evaluation metric, hausdorf requires binary mask
         if torch.max(target) == 1:
             dice_benign.append(soft_dice_score(outputs, target).to("cpu"))
             outputs[outputs != 1] = 0
@@ -109,12 +114,9 @@ for i, item in enumerate(dataloader):
         elif torch.max(target) == 0:
             dice_normal.append(soft_dice_score(outputs, target).to("cpu"))
         
-        
-
+        # extract contours for plotting
         contours_target, _ = cv2.findContours(target[0].cpu().numpy().astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours_mask, _ = cv2.findContours(outputs[0].cpu().numpy().astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # contours_target = cv2.Canny(target[0].cpu().numpy().astype(np.uint8)*255, 0, 255)
-        # contours_mask = cv2.Canny(outputs[0].cpu().numpy().astype(np.uint8)*255, 0, 255)
         plt.imshow(input[0,0].cpu())
         if contours_target:
             contours_target = np.vstack((contours_target[0], np.expand_dims(contours_target[0][0], axis=0)))

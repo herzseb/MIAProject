@@ -48,10 +48,7 @@ train_indices, test_indices, train_labels, test_labels = train_test_split(range(
 # generate subset based on indices
 train_set = Subset(dataset, train_indices)
 test_set = Subset(dataset, test_indices)
-# Test dice score manually
-# pred = torch.tensor([[[[0.1,0.1,1],[0.1,0.1,1],[1,1,1]], [[0.9,0.9,0],[0.9,0.9,0],[0,0,0]], [[0,0,0],[0,0,0],[0,0,0]]]])
-# target = torch.tensor([[[1,1,0],[1,1,0],[0,0,0]]])
-# x = soft_dice_score(pred, target)
+
 
 # Perform stratified k-fold cross-validation
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
@@ -174,18 +171,9 @@ for hyperparams in hyperparameters:
                     outputs = model(input)
                     outputs = torch.argmax(outputs, dim=1, keepdim=False)
                     
-                    # if isinstance(criterion, SoftTunedDiceBCELoss):
-                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
-                    #     loss += criterion(outputs, target, epoch)
-                    # elif isinstance(criterion, nn.CrossEntropyLoss):
-                    #     loss += criterion(outputs, target)
-                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
-                    # else:
-                    #     outputs = torch.argmax(outputs, dim=1, keepdim=False)
-                    #     loss += criterion(outputs, target)
-                    # evaluate only on dice score since its teh score we are optimizing for
+                    # evaluate only on dice score since its the score we are optimizing for
                     loss += soft_dice_loss(outputs, target)
-                # evaluate all metrics only in last epoch aka when the model is trained the best
+     
                 if epoch == hyperparams['epochs']-1:
                     # Calculate the evaluation metric
                     if torch.max(target) == 1:
@@ -236,27 +224,12 @@ for hyperparams in hyperparameters:
         fold_results_HD_std.append(
             [HD_bening_std, HD_malignant_std])
         
+        # save best model of each fold
         path = "Unet_"
         path += time.strftime("%Y%m%d-%H%M%S")
         path += ".pt"
         print(f'Save state dict to {path}')
         torch.save(best_params, path)
-
-        # Log the evaluation metric for the current fold
-        # wandb.log(
-        # #     {f'Fold dice mean {fold + 1} {"fold_results"}': fold_results})
-
-        # table_dice_mean = wandb.Table(data=fold_results_dice_mean, columns=["normal", "benign", "malignant"])
-        # table_dice_std = wandb.Table(data=fold_results_dice_std, columns=["normal", "benign", "malignant"])
-        # table_HD_mean = wandb.Table(data=fold_results_HD_mean, columns=["normal", "benign", "malignant"])
-        # table_HD_std = wandb.Table(data=fold_results_HD_std, columns=["normal", "benign", "malignant"])
-
-        # wandb.log({f"Fold {fold + 1} Dice mean": wandb.plot.line(table_dice_mean, "normal", "benign", "malignant", title=f"Fold {fold + 1} Dice mean")})
-        # wandb.log({f"Fold {fold + 1} Dice std": wandb.plot.line(table_dice_std, "normal", "benign", "malignant", title=f"Fold {fold + 1} Dice std")})
-        # wandb.log({f"Fold {fold + 1} HD mean": wandb.plot.line(table_HD_mean, "normal", "benign", "malignant", title=f"Fold {fold + 1} HD mean")})
-        # wandb.log({f"Fold {fold + 1} HD std": wandb.plot.line(table_HD_std, "normal", "benign", "malignant", title=f"Fold {fold + 1} HD std")})
-
-    
 
     paramset_dice_benign_mean = np.mean(fold_results_dice_mean, axis=0)[0]
     paramset_dice_normal_mean = np.mean(fold_results_dice_mean, axis=0)[1]
@@ -291,6 +264,7 @@ for hyperparams in hyperparameters:
                f'HD bening std': paramset_HD_bening_std,
                f'HD malignant std': paramset_HD_malignant_std})
 
+    # plot train and valdation loss directly on wandb
     param_train_loss = np.mean(param_train_loss, axis=0).tolist()
     val_loss = np.mean(val_loss, axis=0).tolist()
     param_train_loss_with_epoch = [[train, i] for i, train in enumerate(param_train_loss)]
@@ -314,8 +288,4 @@ for hyperparams in hyperparameters:
     print('HD Standard Deviation', paramset_HD_std)
     print('Train Loss', param_train_loss)
     print('Validation Loss', val_loss)
-    # path = "Unet_"
-    # path += time.strftime("%Y%m%d-%H%M%S")
-    # path += ".pt"
-    # print(f'Save state dict to {path}')
-    # torch.save(best_params, path)
+

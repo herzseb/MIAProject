@@ -13,8 +13,6 @@ class SegmentationDataset(Dataset):
         self.labels = []
         self.file_list = self.get_file_list()
         self.transform = T.Compose([
-        #T.RandomResizedCrop(image_size),
-        
         T.ToTensor(),
         T.Grayscale(),
         ])
@@ -85,13 +83,10 @@ class SegmentationDataset(Dataset):
 
 
 def collate_fn(batch):
+    # padd all images to the same size
     images, masks = zip(*batch)
-
-    # Get the maximum height and width among all images in the batch
     max_height = max(image.shape[1] for image in images)
     max_width = max(image.shape[2] for image in images)
-
-    # Pad images and masks to match the maximum dimensions
     padded_images = []
     padded_masks = []
     for image, mask in zip(images, masks):
@@ -102,8 +97,6 @@ def collate_fn(batch):
         padded_images.append(padded_image)
         padded_masks.append(padded_mask)
 
-    # Convert the list of padded images and masks to tensors
     padded_images = torch.stack(padded_images)
     padded_masks = torch.stack(padded_masks)
-
     return padded_images, padded_masks
